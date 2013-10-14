@@ -47,6 +47,15 @@ object ParserInput {
       def sliceString(start: Int, end: Int) = new String(bytes, start, end - start, charset)
     }
 
+  def append(parserInput1: ParserInput, parserInput2: ParserInput) =
+    new ParserInput {
+      private val string = parserInput1.toString + parserInput2.toString
+
+      def charAt(ix: Int): Char = string.charAt(ix)
+      def length: Int = string.length
+      def sliceString(start: Int, end: Int): String = string.substring(start, end)
+    }
+
   implicit def apply(string: String): ParserInput =
     new ParserInput {
       def charAt(ix: Int) = string.charAt(ix)

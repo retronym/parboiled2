@@ -30,7 +30,7 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
   }
 
   object OpTree {
-    def apply(tree: Tree): OpTree = {
+    def apply[I <: HList: c.WeakTypeTag, O <: HList: c.WeakTypeTag](tree: Tree): OpTree = {
       def isForRule1(t: Tree): Boolean =
         t match {
           case q"parboiled2.this.$a.forReduction[$b, $c]" ⇒ false
@@ -40,25 +40,25 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
         }
 
       tree match {
-        case q"$lhs.~[$a, $b]($rhs)($c, $d)"                  ⇒ Sequence(OpTree(lhs), OpTree(rhs))
-        case q"$lhs.|[$a, $b]($rhs)"                          ⇒ FirstOf(OpTree(lhs), OpTree(rhs))
-        case q"$a.this.str($s)"                               ⇒ LiteralString(s)
+        case q"$lhs.~[$a, $b]($rhs)($c, $d)"                  ⇒ Sequence[I, O](OpTree[I, O](lhs), OpTree[I, O](rhs))
+        case q"$lhs.|[$a, $b]($rhs)"                          ⇒ FirstOf(OpTree[I, O](lhs), OpTree[I, O](rhs))
+        case q"$a.this.str($s)"                               ⇒ LiteralString[I, O](s)
         case q"$a.this.ch($c)"                                ⇒ LiteralChar(c)
         case q"$a.this.test($flag)"                           ⇒ SemanticPredicate(flag)
-        case q"$a.this.optional[$b, $c]($arg)($optionalizer)" ⇒ Optional(OpTree(arg), isForRule1(optionalizer))
-        case q"$a.this.zeroOrMore[$b, $c]($arg)($sequencer)"  ⇒ ZeroOrMore(OpTree(arg), isForRule1(sequencer))
-        case q"$a.this.oneOrMore[$b, $c]($arg)($sequencer)"   ⇒ OneOrMore(OpTree(arg), isForRule1(sequencer))
-        case q"$a.this.capture[$b, $c]($arg)($d)"             ⇒ Capture(OpTree(arg))
-        case q"$a.this.&($arg)"                               ⇒ AndPredicate(OpTree(arg))
+        case q"$a.this.optional[$b, $c]($arg)($optionalizer)" ⇒ Optional(OpTree[I, O](arg), isForRule1(optionalizer))
+        case q"$a.this.zeroOrMore[$b, $c]($arg)($sequencer)"  ⇒ ZeroOrMore(OpTree[I, O](arg), isForRule1(sequencer))
+        case q"$a.this.oneOrMore[$b, $c]($arg)($sequencer)"   ⇒ OneOrMore(OpTree[I, O](arg), isForRule1(sequencer))
+        case q"$a.this.capture[$b, $c]($arg)($d)"             ⇒ Capture(OpTree[I, O](arg))
+        case q"$a.this.&($arg)"                               ⇒ AndPredicate(OpTree[I, O](arg))
         case q"$a.this.ANY"                                   ⇒ AnyChar
         case q"$a.this.EMPTY"                                 ⇒ Empty
         case q"$a.this.nTimes[$ti, $to]($times, $r, $sep)($sequencer)" ⇒
-          NTimes(times, OpTree(r), tree.pos, isForRule1(sequencer), sep)
+          NTimes(times, OpTree[I, O](r), tree.pos, isForRule1(sequencer), sep)
         case q"$a.this.$b"       ⇒ RuleCall(tree)
         case q"$a.this.$b(..$c)" ⇒ RuleCall(tree)
-        case q"$a.unary_!()"     ⇒ NotPredicate(OpTree(a))
+        case q"$a.unary_!()"     ⇒ NotPredicate(OpTree[I, O](a))
         case q"$a.this.pimpActionOp[$b1, $b2]($r)($ops).~>.apply[..$e]($f)($g, parboiled2.this.Capture.capture[$ts])" ⇒
-          Action(OpTree(r), f, ts.tpe.asInstanceOf[TypeRef].args)
+          Action(OpTree[I, O](r), f, ts.tpe.asInstanceOf[TypeRef].args)
         case q"$a.this.push[$b]($arg)($c)" ⇒ PushAction(arg)
         case q"$a.this.pimpString(${ Literal(Constant(l: String)) }).-(${ Literal(Constant(r: String)) })" ⇒
           CharacterClass(l, r, tree.pos)
@@ -72,13 +72,27 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
   // for every sequence concatenation. If we modeled sequences as a Seq[OpTree] we would be able to
   // reuse a single mutable mark for all intermediate markings in between elements. This will reduce
   // the stack size for all rules with sequences that are more than two elements long.
-  case class Sequence(lhs: OpTree, rhs: OpTree) extends OpTree {
+  case class Sequence[I <: HList: c.WeakTypeTag, O <: HList: c.WeakTypeTag](lhs: OpTree, rhs: OpTree) extends OpTree {
     def render(ruleName: String): Expr[RuleX] = reify {
-      try Rule(lhs.render().splice.matched && rhs.render().splice.matched)
-      catch {
-        case e: Parser.CollectingRuleStackException ⇒
-          e.save(RuleFrame.Sequence(c.literal(ruleName).splice))
+      def continuationRHS(lastChunk: Boolean, r: Rule[I, O]): Rule[I, O] = {
+        if (r.matched) Rule.matched
+        else if (r.mismatched) Rule.mismatched
+        else {
+          val Rule.PartiallyMatched(cont) = r
+          Rule.partiallyMatched((lc: Boolean) ⇒ continuationRHS(lc, cont(lc)))
+        }
       }
+
+      def continuationLHS(lastChunk: Boolean, r: Rule[I, O]): Rule[I, O] = {
+        if (r.matched) continuationRHS(lastChunk, rhs.render().splice.asInstanceOf[Rule[I, O]])
+        else if (r.mismatched) Rule.mismatched
+        else {
+          val Rule.PartiallyMatched(cont) = r
+          Rule.partiallyMatched((lc: Boolean) ⇒ continuationLHS(lc, cont(lc)))
+        }
+      }
+
+      continuationLHS(false, lhs.render().splice.asInstanceOf[Rule[I, O]])
     }
   }
 
@@ -174,18 +188,24 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
     """)
   }
 
-  case class LiteralString(stringTree: Tree) extends OpTree {
+  case class LiteralString[I <: HList: c.WeakTypeTag, O <: HList: c.WeakTypeTag](stringTree: Tree) extends OpTree {
     def render(ruleName: String): Expr[RuleX] = reify {
+      var ix = 0
       val string = c.Expr[String](stringTree).splice
-      try {
-        val p = c.prefix.splice
-        var ix = 0
-        while (ix < string.length && p.__nextChar() == string.charAt(ix)) ix += 1
-        Rule(ix == string.length || p.__onCharMismatch())
-      } catch {
-        case e: Parser.CollectingRuleStackException ⇒
-          e.save(RuleFrame.LiteralString(string, c.literal(ruleName).splice))
+      val p = c.prefix.splice
+
+      def continuation(lastChunk: Boolean): Rule0 = {
+        var lastCharMatched = true
+        while (ix < string.length && lastCharMatched) {
+          lastCharMatched = p.__nextChar() == string.charAt(ix)
+          if (lastCharMatched) ix += 1
+        }
+        if (!lastCharMatched && !p.__endOfInput()) Rule.mismatched
+        else if (ix == string.length) Rule.matched
+        else if (lastChunk) Rule.mismatched
+        else Rule.partiallyMatched(continuation)
       }
+      continuation(false)
     }
   }
 

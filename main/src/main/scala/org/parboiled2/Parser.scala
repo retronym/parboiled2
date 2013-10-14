@@ -26,6 +26,8 @@ abstract class Parser extends RuleDSL {
 
   def input: ParserInput
 
+  private[this] var inputAcc = input
+
   // the index of the current input char
   private[this] var cursor: Int = _
 
@@ -43,9 +45,30 @@ abstract class Parser extends RuleDSL {
   /**
    * THIS IS NOT PUBLIC API. It will be hidden in future. Use it at your own risk.
    */
-  Val __valueStack = new ValueStack
+  val __valueStack = new ValueStack
 
   def rule[I <: HList, O <: HList](r: Rule[I, O]): Rule[I, O] = macro ruleImpl[I, O]
+
+  def startParsing[L <: HList](rule: this.type ⇒ RuleN[L]): Result[L] = {
+    cursor = -1
+    __valueStack.clear()
+    mismatchesAtErrorIndex = 0
+    currentErrorRuleStackIx = -1
+
+    def runRule[I <: HList, O <: HList](r: Rule[I, O]): Result[L] = {
+      if (r.matched)
+        Value(__valueStack.toHList())
+      else if (r.partiallyMatched)
+        Continuation((parserInput, lastChunk) ⇒ {
+          this.inputAcc = ParserInput.append(this.inputAcc, parserInput)
+          val Rule.PartiallyMatched(cont) = r
+          runRule(cont(lastChunk))
+        })
+      else
+        Error(Position(-1, -1, -1), List())
+    }
+    runRule(rule(this))
+  }
 
   def run[L <: HList](rule: this.type ⇒ RuleN[L]): Either[Parser.Error, L] = {
     def runRule(errorRuleStackIx: Int = -1): Boolean = {
@@ -78,12 +101,12 @@ abstract class Parser extends RuleDSL {
    * THIS IS NOT PUBLIC API. It will be hidden in future. Use it at your own risk.
    */
   def __nextChar(): Char = {
-    val nextCursor = cursor + 1
-    if (nextCursor < input.length) {
+    if (!__endOfInput()) {
+      val nextCursor = cursor + 1
       cursor = nextCursor
       if (currentErrorRuleStackIx == -1 && nextCursor > errorIndex)
         errorIndex = nextCursor // if we are in the first "regular" parser run, we need to advance the errorIndex here
-      input.charAt(nextCursor)
+      inputAcc.charAt(nextCursor)
     } else EOI
   }
 
@@ -98,6 +121,13 @@ abstract class Parser extends RuleDSL {
   def __resetCursorAndValueStack(mark: Mark): Unit = {
     cursor = (mark.value >>> 32).toInt
     __valueStack.top = (mark.value & 0x00000000FFFFFFFF).toInt
+  }
+
+  /**
+   * THIS IS NOT PUBLIC API. It will be hidden in future. Use it at your own risk.
+   */
+  def __endOfInput(): Boolean = {
+    (cursor + 1) == inputAcc.length
   }
 
   /**
@@ -127,16 +157,16 @@ abstract class Parser extends RuleDSL {
   }
 
   @tailrec
-  private def errorPosition(ix: Int = math.min(errorIndex, input.length - 1), line: Int = 1, col: Int = -1): Position =
+  private def errorPosition(ix: Int = math.min(errorIndex, inputAcc.length - 1), line: Int = 1, col: Int = -1): Position =
     if (ix < 0) Position(errorIndex, line, if (col == -1) errorIndex + 1 else col)
-    else if (input.charAt(ix) != '\n') errorPosition(ix - 1, line, col)
+    else if (inputAcc.charAt(ix) != '\n') errorPosition(ix - 1, line, col)
     else errorPosition(ix - 1, line + 1, if (col == -1) errorIndex - ix else col)
 }
 
 object Parser {
   sealed trait Result[+L <: HList]
   case class Value[L <: HList](value: L) extends Result[L]
-  case class Continuation[L <: HList](continuation: ParserInput ⇒ Result[L]) extends Result[L]
+  case class Continuation[L <: HList](continuation: (ParserInput, Boolean) ⇒ Result[L]) extends Result[L]
   case class Error(position: Position, errorRules: Seq[RuleStack]) extends Result[Nothing]
   case class Position(index: Int, line: Int, column: Int)
   case class RuleStack(frames: Seq[RuleFrame])
@@ -147,7 +177,7 @@ object Parser {
 
   def ruleImpl[I <: HList: ctx.WeakTypeTag, O <: HList: ctx.WeakTypeTag](ctx: ParserContext)(r: ctx.Expr[Rule[I, O]]): ctx.Expr[Rule[I, O]] = {
     val opTreeCtx = new OpTreeContext[ctx.type] { val c: ctx.type = ctx }
-    val opTree = opTreeCtx.OpTree(r.tree)
+    val opTree = opTreeCtx.OpTree[I, O](r.tree)
     val ruleName = ctx.enclosingMethod.asInstanceOf[ctx.universe.DefDef].name.toString
     ctx.universe.reify {
       opTree.render(ruleName).splice.asInstanceOf[Rule[I, O]]
