@@ -16,6 +16,7 @@
 
 package org.parboiled2
 
+import Core.Parser
 import shapeless._
 
 // pure compile-time-only test

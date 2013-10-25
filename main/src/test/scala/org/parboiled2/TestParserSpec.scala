@@ -16,6 +16,7 @@
 
 package org.parboiled2
 
+import Core.Parser
 import org.specs2.specification.Scope
 import org.specs2.mutable.Specification
 import shapeless._

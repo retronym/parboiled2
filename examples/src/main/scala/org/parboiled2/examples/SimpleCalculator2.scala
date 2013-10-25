@@ -17,6 +17,7 @@
 package org.parboiled2.examples
 
 import org.parboiled2._
+import Core.Parser
 import scala.annotation.tailrec
 import shapeless._
 

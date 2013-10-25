@@ -16,6 +16,8 @@
 
 package org.parboiled2
 
+import Core.Parser
+
 class ParserSpec extends TestParserSpec {
   "The new parboiled parser" should {
     "successfully recognize single char" in new TestParser0 {

@@ -18,12 +18,18 @@ package org.parboiled2
 
 import scala.collection.immutable.VectorBuilder
 import shapeless._
+import Core.Parser
 
 trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
   val c: OpTreeCtx
   import c.universe._
 
   type RuleX = Rule[_ <: HList, _ <: HList]
+
+  private[OpTreeContext] def markCursorAndValueStack: c.Expr[Core.Parser.Mark] =
+    c.Expr[Core.Parser.Mark](Select(c.prefix.tree,
+      typeOf[org.parboiled2.Core.Parser].declaration(newTermName("markCursorAndValueStack")))
+      .setType(typeOf[Core.Parser.Mark]))
 
   abstract class OpTree {
     def render(ruleName: String = ""): Expr[RuleX]
@@ -86,7 +92,7 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
     def render(ruleName: String): Expr[RuleX] = reify {
       try {
         val p = c.prefix.splice
-        val mark = p.markCursorAndValueStack
+        val mark = markCursorAndValueStack.splice
         val left = lhs.render().splice
         if (left.matched) left
         else {
@@ -117,7 +123,7 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
           val p = c.prefix.splice
           var matching = true
           var ix = 0
-          val mark = p.markCursorAndValueStack
+          val mark = markCursorAndValueStack.splice
           c.Expr[Unit](if (opIsRule1) q"val builder = new scala.collection.immutable.VectorBuilder[Any]" else q"()").splice
           while (matching && ix < timez) {
             val sepMatched = ix == 0 || separator.render().splice.matched
@@ -244,11 +250,11 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
         if (opIsRule1)
           reify {
             val p = c.prefix.splice
-            var mark = p.markCursorAndValueStack
+            var mark = markCursorAndValueStack.splice
             val builder = new VectorBuilder[Any]
             while (op.render().splice.matched) {
               builder += p.valueStack.pop()
-              mark = p.markCursorAndValueStack
+              mark = markCursorAndValueStack.splice
             }
             p.resetCursorAndValueStack(mark)
             p.valueStack.push(builder.result())
@@ -256,9 +262,9 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
         else
           reify {
             val p = c.prefix.splice
-            var mark = p.markCursorAndValueStack
+            var mark = markCursorAndValueStack.splice
             while (op.render().splice.matched)
-              mark = p.markCursorAndValueStack
+              mark = markCursorAndValueStack.splice
             p.resetCursorAndValueStack(mark)
           }
       reify {
@@ -279,12 +285,12 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
         if (opIsRule1)
           reify {
             val p = c.prefix.splice
-            val firstMark = p.markCursorAndValueStack
+            val firstMark = markCursorAndValueStack.splice
             var mark = firstMark
             val builder = new VectorBuilder[Any]
             while (op.render().splice.matched) {
               builder += p.valueStack.pop()
-              mark = p.markCursorAndValueStack
+              mark = markCursorAndValueStack.splice
             }
             if (mark != firstMark) {
               p.resetCursorAndValueStack(mark)
@@ -295,10 +301,10 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
         else
           reify {
             val p = c.prefix.splice
-            val firstMark = p.markCursorAndValueStack
+            val firstMark = markCursorAndValueStack.splice
             var mark = firstMark
             while (op.render().splice.matched)
-              mark = p.markCursorAndValueStack
+              mark = markCursorAndValueStack.splice
             if (mark != firstMark) {
               p.resetCursorAndValueStack(mark)
               Rule.matched
@@ -396,7 +402,7 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
     def op: OpTree
     def renderMatch(): Expr[RuleX] = reify {
       val p = c.prefix.splice
-      val mark = p.markCursorAndValueStack
+      val mark = markCursorAndValueStack.splice
       val result = op.render().splice
       p.resetCursorAndValueStack(mark)
       result

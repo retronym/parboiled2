@@ -19,6 +19,7 @@ package org.parboiled2.examples
 import org.parboiled2._
 import scala.annotation.tailrec
 import shapeless._
+import Core.Parser
 
 // `The classic non-context-free language <http://en.wikipedia.org/wiki/Parsing_expression_grammar#Examples>`_
 // .. math:: \{ a^n b^n c^n : n \ge 1 \}
