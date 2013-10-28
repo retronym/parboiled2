@@ -16,6 +16,8 @@
 
 package org.parboiled2
 
+import Core.Parser
+
 class ErrorReportingSpec extends SimpleCalculatorSpec {
   import RuleFrame._
 

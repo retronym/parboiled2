@@ -1,5 +1,6 @@
 package org.parboiled2
 
+import Core.Parser
 import shapeless._
 
 class ValueStackSpec extends TestParserSpec {

@@ -16,6 +16,8 @@
 
 package org.parboiled2
 
+import Core.Parser
+
 class SimpleCalculatorSpec extends TestParserSpec {
   // SimpleCalculator from https://github.com/sirthias/parboiled/blob/master/examples-scala/src/main/scala/org/parboiled/examples/calculators/SimpleCalculator0.scala
   abstract class SimpleCalculator extends TestParser0 {

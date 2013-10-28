@@ -74,7 +74,7 @@ object Core {
         Left(buildParseError())
     }
 
-    /*private[parboiled2]*/ def nextChar(): Char = {
+    private[Core] def nextChar(): Char = {
       val nextCursor = cursor + 1
       if (nextCursor < input.length) {
         cursor = nextCursor
@@ -85,9 +85,12 @@ object Core {
     }
 
     private[Core] def markCursorAndValueStack: Mark = new Mark((cursor.toLong << 32) + valueStack.top)
-    /*private[parboiled2]*/ def resetCursorAndValueStack(mark: Mark): Unit = {
+    private[Core] def resetCursorAndValueStack(i: Long): Char = {
+      println(">>>> " + i)
+      val mark: Mark = new Mark(i)
       cursor = (mark.value >>> 32).toInt
       valueStack.top = (mark.value & 0x00000000FFFFFFFF).toInt
+      '7'
     }
 
     /*private[parboiled2]*/ def markCursor: Int = cursor
@@ -110,7 +113,7 @@ object Core {
   }
 
   object Parser {
-    class Mark private[Parser] (val value: Long) extends AnyVal
+    class Mark private[Core] (val value: Long) extends AnyVal
 
     type ParserContext = Context { type PrefixType = Parser }
 
