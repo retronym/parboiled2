@@ -19,7 +19,7 @@ package org.parboiled2
 object ErrorUtils {
   import Parser.{ Error, Position, RuleStack }
 
-  def formatError(input: ParserInput, error: Error): String = {
+  def formatError[T](input: ParserInput[T], error: Error): String = {
     val Error(Position(index, line, col), ruleStacks) = error
     val problem =
       if (index < input.length) s"Invalid input '${input charAt index}'"

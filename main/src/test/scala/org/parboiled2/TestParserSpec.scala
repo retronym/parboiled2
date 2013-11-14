@@ -32,7 +32,7 @@ abstract class TestParserSpec extends Specification {
     def beMismatched = beTrue ^^ (parse(_: String).isLeft)
     def beMismatchedWithError(pe: Error) = parse(_: String) === Left(pe)
 
-    var input: ParserInput = _
+    var input: ParserInput[Char] = _
     def targetRule: RuleN[L]
 
     def parse(input: String): Either[Error, L] = {

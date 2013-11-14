@@ -17,12 +17,28 @@
 package org.parboiled2
 
 import java.nio.charset.Charset
+import scala.collection.mutable
 
-sealed abstract class ParserInput {
+sealed abstract class ParserInput[T] {
+  def elems(): Seq[T]
   def charAt(ix: Int): Char
   def length: Int
   def sliceString(start: Int, end: Int): String
+
+  /**
+   * In-place append
+   * @param input sequence to append
+   * @return
+   */
+  def append(input: Seq[T]): Unit
   override def toString: String = sliceString(0, length)
+
+  /**
+   *
+   * @param gen
+   * @return `true` if has next chunk.
+   */
+  def nextChunk(gen: () ⇒ Seq[T]): Boolean
 
   /**
    * @param line starts at 1
@@ -38,30 +54,37 @@ sealed abstract class ParserInput {
 object ParserInput {
   val UTF8 = Charset.forName("UTF-8")
 
-  implicit def apply(bytes: Array[Byte]): ParserInput = apply(bytes, UTF8)
+  //  private[ParserInput] class ParserBytesInput(bytes: Array[Byte], charset: Charset) extends ParserInput[Byte] {
+  //    private[ParserBytesInput] var content: Array[Byte] = bytes.clone()
+  //
+  //    def elems(): Seq[Byte] = content
+  //    def charAt(ix: Int) = content(ix).toChar
+  //    def length = content.length
+  //    def sliceString(start: Int, end: Int) = new String(content, start, end - start, charset)
+  //    def append(input: Seq[Byte]): Unit = content ++= input
+  //  }
+  //
+  //  implicit def apply(bytes: Array[Byte]): ParserInput[Byte] = apply(bytes, UTF8)
+  //  def apply(bytes: Array[Byte], charset: Charset): ParserInput[Byte] = new ParserBytesInput(bytes, charset)
 
-  def apply(bytes: Array[Byte], charset: Charset): ParserInput =
-    new ParserInput {
-      def charAt(ix: Int) = bytes(ix).toChar
-      def length = bytes.length
-      def sliceString(start: Int, end: Int) = new String(bytes, start, end - start, charset)
+  private[ParserInput] class ParserCharsInput(string: String) extends ParserInput[Char] {
+    private[ParserCharsInput] val content = new StringBuilder
+
+    def elems(): Seq[Char] = content
+    def charAt(ix: Int) = content.charAt(ix)
+    def length = content.length
+    def sliceString(start: Int, end: Int) = content.substring(start, end)
+    def append(input: Seq[Char]): Unit = content ++= input
+    def nextChunk(gen: () ⇒ Seq[Char]): Boolean = {
+      val chunk = gen()
+      if (chunk.isEmpty) false
+      else {
+        content ++= chunk
+        true
+      }
     }
+  }
 
-  def append(parserInput1: ParserInput, parserInput2: ParserInput) =
-    new ParserInput {
-      private val string = parserInput1.toString + parserInput2.toString
-
-      def charAt(ix: Int): Char = string.charAt(ix)
-      def length: Int = string.length
-      def sliceString(start: Int, end: Int): String = string.substring(start, end)
-    }
-
-  implicit def apply(string: String): ParserInput =
-    new ParserInput {
-      def charAt(ix: Int) = string.charAt(ix)
-      def length = string.length
-      def sliceString(start: Int, end: Int) = string.substring(start, end)
-    }
-
-  implicit def apply(chars: Array[Char]): ParserInput = apply(new String(chars))
+  implicit def apply(string: String): ParserInput[Char] = new ParserCharsInput(string)
+  implicit def apply(chars: Array[Char]): ParserInput[Char] = apply(new String(chars))
 }

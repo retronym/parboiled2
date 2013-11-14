@@ -19,7 +19,7 @@ package org.parboiled2
 import shapeless._
 
 // pure compile-time-only test
-class DSLTest(val input: ParserInput) extends Parser {
+class DSLTest(val input: ParserInput[String]) extends Parser {
 
   def ZeroOrMoreReduction_Checked: Rule[String :: HNil, String :: HNil] = ZeroOrMoreReduction
   def ZeroOrMoreReduction = rule { zeroOrMore(capture("0" - "9") ~> ((x: String, y) ⇒ x + y)) }

@@ -22,12 +22,15 @@ scalacOptions ++= Seq(
   "-unchecked",
   "-deprecation",
   "-Xlint",
-  "-language:_", 
+  "-language:_",
   "-encoding", "UTF-8"
+  , "-P:continuations:enable"
 )
 
 libraryDependencies ++= Seq(
-  "org.scala-lang"  %  "scala-reflect"  % "2.10.3"  % "compile",
-  "com.chuusai"     %% "shapeless"      % "1.2.4"   % "compile",
-  "org.specs2"      %% "specs2"         % "1.14"    % "test"
+  "org.scala-lang"         %  "scala-reflect"  % "2.10.3"  % "compile",
+  "com.chuusai"            %% "shapeless"      % "1.2.4"   % "compile",
+  "org.specs2"             %% "specs2"         % "1.14"    % "test"
 )
+
+libraryDependencies <+= scalaVersion { v => compilerPlugin("org.scala-lang.plugins" % "continuations" % v) }
