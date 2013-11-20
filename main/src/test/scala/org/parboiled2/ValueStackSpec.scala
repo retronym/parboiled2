@@ -218,13 +218,13 @@ class ValueStackSpec extends TestParserSpec {
     }
 
     "pass integration tests" in {
-      "sequence rule in `~>` production" in new TestParser[HNil] {
-        def foo = rule { capture("a") ~ capture("b") ~> (str(_) ~ _) }
-        def targetRule = foo
-
-        "abab" must beMatchedWith(HNil)
-        "ab" must beMismatched
-      }
+      //            "sequence rule in `~>` production" in new TestParser[HNil] {
+      //              def foo = rule { capture("a") ~ capture("b") ~> (str(_) ~ _) }
+      //              def targetRule = foo
+      //
+      //              "abab" must beMatchedWith(HNil)
+      //              "ab" must beMismatched
+      //            }
 
       "complex rule" in new TestParser[String :: Int :: Int :: HNil] {
         def bar = rule { push(5) ~ capture("ab") ~ foo }
