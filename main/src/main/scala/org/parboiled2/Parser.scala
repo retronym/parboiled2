@@ -24,9 +24,7 @@ import shapeless._
 abstract class Parser extends RuleDSL {
   import Parser._
 
-  type ElemType
-
-  def input: ParserInput[ElemType]
+  def input: ParserInput
 
   // the index of the current input char
   private[this] var cursor: Int = _
@@ -64,21 +62,18 @@ abstract class Parser extends RuleDSL {
 
     def runRule[I <: HList, O <: HList](r: Rule[I, O], buildingError: Boolean = false): Result[L] = {
       if (r.matched) Value(__valueStack.toHList())
-      else if (r.partiallyMatched) {
-        Continuation[L, ElemType]((parserInput: ParserInput[ElemType]) ⇒ {
-          val elems = parserInput.elems()
-          __lastChunk = elems == null || elems.isEmpty
-          this.input.append(elems)
-          val Rule.PartiallyMatched(cont) = r
-          runRule(cont())
+      else if (r.mismatched) {
+        if (buildingError) Mismatch()
+        else buildParseError()
+      } else {
+        Continuation((parserInput: ParserInput) ⇒ {
+          __lastChunk = !input.append(parserInput)
+          r match { case Rule.PartiallyMatched(cont) ⇒ runRule(cont()) }
         })
-      } else if (buildingError) Mismatch()
-      else buildParseError()
+      }
     }
 
     @tailrec def buildParseError(errorRuleIx: Int = 0, stacksBuilder: VectorBuilder[RuleStack] = new VectorBuilder): Error = {
-      println(s"===================== $errorRuleIx")
-
       resetInternalState(errorRuleIx)
       val ruleFrames: Seq[RuleFrame] =
         try {
@@ -188,7 +183,7 @@ abstract class Parser extends RuleDSL {
 object Parser {
   sealed trait Result[+L <: HList]
   case class Value[L <: HList](value: L) extends Result[L]
-  case class Continuation[L <: HList, T](continuation: (ParserInput[T]) ⇒ Result[L]) extends Result[L]
+  case class Continuation[L <: HList](continuation: (ParserInput) ⇒ Result[L]) extends Result[L]
   case class Error(position: Position, errorRules: Seq[RuleStack]) extends Result[Nothing]
   private[Parser] case class Mismatch() extends Result[Nothing]
   case class Position(index: Int, line: Int, column: Int)

@@ -20,7 +20,7 @@ import org.parboiled2._
 import scala.annotation.tailrec
 import shapeless._
 
-class ContinuationPassingParser(val input: ParserInput[Char]) extends Parser {
+class ContinuationPassingParser(val input: ParserInput) extends Parser {
   type ElemType = Char
 
   //def InputLine = rule { "123" ~ ch('4') }
@@ -29,7 +29,7 @@ class ContinuationPassingParser(val input: ParserInput[Char]) extends Parser {
   //def InputLine = rule { capture("1") ~ capture("2345") }
   //def InputLine = rule { capture("12345") ~> ((x: String) ⇒ x.toInt + 23) }
   //def InputLine = rule { capture("1") ~ capture("2345") ~> ((x: String, y: String) ⇒ x.toInt + y.toInt) }
-  def InputLine = rule { capture("1") ~ capture("2345") ~> ((x: String, y: String) ⇒ x.toInt + y.toInt) ~ push() }
+  def InputLine = rule { capture("1") ~ capture("2345") ~> ((x: String, y: String) ⇒ x.toInt + y.toInt) ~ push(7) }
 }
 
 object ContinuationPassingParser {
@@ -57,12 +57,12 @@ object ContinuationPassingParser {
     val input1 = "12"
     val abcParser = new ContinuationPassingParser(input1)
     abcParser.startParsing(_.InputLine) match {
-      case (cont1: Continuation[_, Char]) ⇒
+      case Continuation(cont1) ⇒
         val input2 = "3"
-        cont1.continuation(input2) match {
-          case (cont2: Continuation[_, Char]) ⇒
+        cont1(input2) match {
+          case Continuation(cont2) ⇒
             val input3 = "45"
-            cont2.continuation(input3) match {
+            cont2(input3) match {
               case Value(v) ⇒
                 println(s"Expression is valid: $v")
               case err @ Error(_, _) ⇒

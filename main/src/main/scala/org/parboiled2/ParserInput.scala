@@ -18,23 +18,23 @@ package org.parboiled2
 
 import java.nio.charset.Charset
 
-sealed abstract class ParserInput[T] {
-  def elems(): Seq[T]
+sealed abstract class ParserInput {
   def charAt(ix: Int): Char
   def length: Int
   def sliceString(start: Int, end: Int): String
   override def toString: String = sliceString(0, length)
+
   /**
    * In-place append
    * @param input sequence to append
-   * @return
+   * @return `true` if any element has been added
    */
-  def append(input: Seq[T]): Unit
+  def append(input: ParserInput): Boolean
 
   /**
    * @param line starts at 1
    *
-   * @return
+   * @return line `String` of number `line`
    */
   def getLine(line: Int): String = toString.split('\n')(line - 1)
 }
@@ -45,28 +45,37 @@ sealed abstract class ParserInput[T] {
 object ParserInput {
   val UTF8 = Charset.forName("UTF-8")
 
-  private[ParserInput] class ParserBytesInput(bytes: Array[Byte], charset: Charset) extends ParserInput[Byte] {
+  private[ParserInput] class ParserBytesInput(bytes: Array[Byte], charset: Charset) extends ParserInput {
     private[ParserBytesInput] var content: Array[Byte] = bytes.clone()
 
-    def elems(): Seq[Byte] = content
     def charAt(ix: Int) = content(ix).toChar
     def length = content.length
     def sliceString(start: Int, end: Int) = new String(content, start, end - start, charset)
-    def append(input: Seq[Byte]): Unit = content ++= input
+    def append(input: ParserInput) = input match {
+      case (pbi: ParserBytesInput) ⇒
+        content ++= pbi.content
+        !(pbi.content == null || pbi.content.isEmpty)
+      case _ ⇒ throw new Exception("Unexpected type of `ParserInput`")
+    }
   }
 
-  implicit def apply(bytes: Array[Byte]): ParserInput[Byte] = apply(bytes, UTF8)
-  def apply(bytes: Array[Byte], charset: Charset): ParserInput[Byte] = new ParserBytesInput(bytes, charset)
+  implicit def apply(bytes: Array[Byte]): ParserInput = apply(bytes, UTF8)
+  def apply(bytes: Array[Byte], charset: Charset): ParserInput = new ParserBytesInput(bytes, charset)
 
-  private[ParserInput] class ParserCharsInput(string: String) extends ParserInput[Char] {
+  private[ParserInput] class ParserCharsInput(string: String) extends ParserInput {
     private[ParserCharsInput] val content = new StringBuilder(string)
-    def elems(): Seq[Char] = content
-    def charAt(ix: Int) = content.charAt(ix)
+
+    def charAt(ix: Int): Char = content.charAt(ix)
     def length = content.length
     def sliceString(start: Int, end: Int) = content.substring(start, end)
-    def append(input: Seq[Char]): Unit = content ++= input
+    def append(input: ParserInput) = input match {
+      case (pbi: ParserCharsInput) ⇒
+        content ++= pbi.content
+        !(pbi.content == null || pbi.content.isEmpty)
+      case _ ⇒ throw new Exception("Unexpected type of `ParserInput`")
+    }
   }
 
-  implicit def apply(string: String): ParserInput[Char] = new ParserCharsInput(string)
-  implicit def apply(chars: Array[Char]): ParserInput[Char] = apply(new String(chars))
+  implicit def apply(string: String): ParserInput = new ParserCharsInput(string)
+  implicit def apply(chars: Array[Char]): ParserInput = apply(new String(chars))
 }
