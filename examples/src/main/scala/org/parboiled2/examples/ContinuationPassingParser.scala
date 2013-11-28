@@ -21,15 +21,17 @@ import scala.annotation.tailrec
 import shapeless._
 
 class ContinuationPassingParser(val input: ParserInput) extends Parser {
-  type ElemType = Char
+  var sideEffectedVar = "a"
 
   //def InputLine = rule { "123" ~ ch('4') }
+  def InputLine = rule { ch('0') | '1' }
   //def InputLine = rule { "123" | "45" }
   //def InputLine = rule { capture("12345") }
   //def InputLine = rule { capture("1") ~ capture("2345") }
   //def InputLine = rule { capture("12345") ~> ((x: String) ⇒ x.toInt + 23) }
   //def InputLine = rule { capture("1") ~ capture("2345") ~> ((x: String, y: String) ⇒ x.toInt + y.toInt) }
-  def InputLine = rule { capture("1") ~ capture("2345") ~> ((x: String, y: String) ⇒ x.toInt + y.toInt) ~ push(7) }
+  //def InputLine = rule { capture("1") ~ capture("2345") ~> ((x: String, y: String) ⇒ x.toInt + y.toInt) ~ push(7) }
+  //def InputLine = rule { capture("1") ~> (sideEffectedVar = _) }
 }
 
 object ContinuationPassingParser {
@@ -73,6 +75,8 @@ object ContinuationPassingParser {
           case err @ Error(_, _) ⇒
             println(s"Expression is not valid for '$input2' chunk. Error: ${ErrorUtils.formatError(abcParser.input, err)}")
         }
+      case Value(v) ⇒
+        println(s"Expression is valid: $v ${abcParser.sideEffectedVar}")
       case err @ Error(_, _) ⇒
         println(s"Expression is not valid for '$input1' chunk. Error: ${ErrorUtils.formatError(abcParser.input, err)}")
     }
