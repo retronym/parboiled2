@@ -292,7 +292,7 @@ trait OpTreeContext[OpTreeCtx <: Parser.ParserContext] {
           Rule($flagTree || p.__onCharMismatch())
         } catch {
           case e: Parser.CollectingRuleStackException ⇒
-            e.save(RuleFrame.SemanticPredicate($ruleName))
+            e.save(RuleFrame.SemanticPredicate($ruleName, ${show(flagTree)}))
         }
       """)
   }

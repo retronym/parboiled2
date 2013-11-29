@@ -66,17 +66,17 @@ object ContinuationPassingParser {
             val input3 = "45"
             cont2(input3) match {
               case Value(v) ⇒
-                println(s"Expression is valid: $v")
+                println(s"Expression is valid for '$input3': $v")
               case err @ Error(_, _) ⇒
                 println(s"Expression is not valid for '$input3' chunk. Error: ${ErrorUtils.formatError(abcParser.input, err)}")
             }
           case Value(v) ⇒
-            println(s"Expression is valid: $v")
+            println(s"Expression is valid for '$input2': $v")
           case err @ Error(_, _) ⇒
             println(s"Expression is not valid for '$input2' chunk. Error: ${ErrorUtils.formatError(abcParser.input, err)}")
         }
       case Value(v) ⇒
-        println(s"Expression is valid: $v ${abcParser.sideEffectedVar}")
+        println(s"Expression is valid for '$input1': $v ${abcParser.sideEffectedVar}")
       case err @ Error(_, _) ⇒
         println(s"Expression is not valid for '$input1' chunk. Error: ${ErrorUtils.formatError(abcParser.input, err)}")
     }
