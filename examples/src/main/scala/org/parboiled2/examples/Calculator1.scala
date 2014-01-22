@@ -19,17 +19,14 @@ package org.parboiled2.examples
 import scala.annotation.tailrec
 import scala.util.{Failure, Success}
 import org.parboiled2._
+import org.parboiled2.examples.extensions._
 
 object Calculator1 extends App {
   repl()
 
   @tailrec
   def repl(): Unit = {
-    // TODO: Replace next three lines with `scala.Predef.readLine(text: String, args: Any*)`
-    // once BUG https://issues.scala-lang.org/browse/SI-8167 is fixed
-    print("---\nEnter calculator expression > ")
-    Console.out.flush()
-    readLine() match {
+    this.readLine("---\nEnter calculator expression > ") match {
       case "" =>
       case line =>
         val parser = new Calculator1(line)
